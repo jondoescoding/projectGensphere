@@ -1,0 +1,2 @@
+startup that creates interactive voice agents using generative AI with emphasis on applications like
+language tutoring, entertainment or mental health. The business model would be B2C.

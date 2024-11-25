@@ -1,0 +1,103 @@
+nodes:
+- function: read_file_as_string
+  name: read_idea
+  outputs:
+  - domains
+  params:
+    file_path: domains_to_search.txt
+  type: function_call
+- function: get_current_date_function
+  name: papers_with_code_analyzer__get_current_date
+  outputs:
+  - current_date
+  params: {}
+  type: function_call
+- function: get_timewindow_function
+  name: papers_with_code_analyzer__get_timewindow
+  outputs:
+  - time_window
+  params: {}
+  type: function_call
+- model: gpt-4o-2024-08-06
+  name: papers_with_code_analyzer__papers_with_code_scrape
+  outputs:
+  - papers_with_code_latest_research_articles
+  params:
+    prompt: "\nYou should visit Papers With Code at https://paperswithcode.com/latest\n\
+      \nThis website contains research papers on AI/ML advancements\n\nToday is {{\
+      \ papers_with_code_analyzer__get_current_date.current_date }}\n\nYou should\
+      \ subsitute yyyy and mm by year and month you want to search.\n\nThe search\
+      \ time window should be {{ papers_with_code_analyzer__get_timewindow.time_window\
+      \ }}.\n\nAfter that, you should extract raw content from the htmls associated,\n\
+      \nwhich will contain information about the each paper such as the title, url\
+      \ to the paper's abstract, who wrote the paper  \n\nScroll the page until the\
+      \ end and wait a few miliseconds for it to launch before scraping.\n"
+  service: openai
+  tools:
+  - COMPOSIO.FIRECRAWL_SCRAPE
+  type: llm_service
+- model: gpt-4o-2024-08-06
+  name: papers_with_code_analyzer__extract_info_from_search
+  outputs:
+  - structured_search_info
+  params:
+    prompt: "\nYou are given reports on the extracted content from a search to https://paperswithcode.com/latest,\
+      \ containing \n\nAI/ML research papers from the last week:\n\n{{ papers_with_code_analyzer__papers_with_code_scrape.papers_with_code_latest_research_articles\
+      \ }}. \n\nWe want to extract accurate information about these research papers.\
+      \ \n\nStructure the information there by the following dimensions:  research\
+      \ paper title, url to paper, brief description.\n"
+  service: openai
+  structured_output_schema: ResearchPaperList
+  type: llm_service
+- function: postprocess_search_results_functions
+  name: papers_with_code_analyzer__postprocess_search_results
+  outputs:
+  - postprocessed_search_results
+  params:
+    info: '{{ papers_with_code_analyzer__extract_info_from_search.structured_search_info
+      }}'
+  type: function_call
+- model: gpt-4o-2024-08-06
+  name: papers_with_code_analyzer__find_extra_info
+  outputs:
+  - research_paper_abstract
+  params:
+    prompt: '
+
+      You should conduct a comprehensive search on the web about the following entry
+      from paperswithcode.com:
+
+
+      {{ papers_with_code_analyzer__postprocess_search_results.postprocessed_search_results[i]
+      }}. You should look to find the abstract of the research.
+
+      '
+  service: openai
+  tools:
+  - COMPOSIO.TAVILY_TAVILY_SEARCH
+  type: llm_service
+- model: gpt-4o-2024-08-06
+  name: generate_report
+  outputs:
+  - report
+  params:
+    prompt: "You are a world class VC analyst. You are looking for the next big thing\
+      \ to create within the AL/ML space. \n\nYou are currently analyzing the following\
+      \ startup idea:\n{{ read_idea.domains }}\n\nYour task is to help analyze this\
+      \ idea in face of recent research papers on paperswithcode.com in order to get\
+      \ the very latest in research to be ahead of the game\n\nSome recents research\
+      \ in paperswithcode.com are:\n{{ papers_with_code_analyzer__postprocess_search_results.postprocessed_search_results\
+      \ }}\n\nBesides that, some extra information about these companies is:\n{{ papers_with_code_analyzer__find_extra_info.research_paper_abstract\
+      \ }}. \n\nGiven that, you should create a comprehensive report containing the\
+      \ following:\n1. An overview of the latest papers on paperswithcode.com. Based\
+      \ on the startup idea which would be the best to use to generate the next big\
+      \ web application with real world utility for consumers?\n\n2. A list of companies\
+      \ from your knowledge that may become direct competitors to the startup idea.\
+      \ Explain your rational\n\n3. Create a list of the most promising research papers\
+      \ from paperswithcode.com, as defined by their potential to onboard at least\
+      \ 100 users for their pain points. \n\n4. A table containing all information\
+      \ you found from the latest research papers from paperswithcode.\n\nAnswer in\
+      \ markdown format, and ensure your formatting is correct and that the output\
+      \ will be rendered without issues on a jupyter notebook.\n"
+  service: openai
+  type: llm_service

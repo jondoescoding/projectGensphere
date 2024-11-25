@@ -2,4 +2,5 @@
 .history
 .venv
 .env
-.cpython
+*.cpython
+__pycache__

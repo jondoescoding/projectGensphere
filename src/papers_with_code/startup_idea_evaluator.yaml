@@ -1,0 +1,50 @@
+# startup_idea_evaluator.yaml
+
+nodes:
+  - name: read_idea
+    type: function_call
+    function: read_file_as_string
+    params:
+      file_path: "domains_to_search.txt"
+    outputs:
+      - domains
+      
+  - name: papers_with_code_analyzer
+    type: yml_flow
+    yml_file: papers_with_code_analyzer.yaml
+    outputs:
+      - postprocessed_search_results
+      - research_paper_abstract
+      
+  - name: generate_report
+    type: llm_service
+    service: openai
+    model: "gpt-4o-2024-08-06"
+    params:
+      prompt: |
+         You are a world class VC analyst. You are looking for the next big thing to create within the AL/ML space. 
+
+         You are currently analyzing the following startup idea:
+         {{ read_idea.domains }}
+
+         Your task is to help analyze this idea in face of recent research papers on paperswithcode.com in order to get the very latest in research to be ahead of the game
+
+         Some recents research in paperswithcode.com are:
+         {{ papers_with_code_analyzer.postprocessed_search_results }}
+
+         Besides that, some extra information about these companies is:
+         {{ papers_with_code_analyzer.research_paper_abstract }}. 
+        
+         Given that, you should create a comprehensive report containing the following:
+         1. An overview of the latest papers on paperswithcode.com. Based on the startup idea which would be the best to use to generate the next big web application with real world utility for consumers?
+
+         2. A list of companies from your knowledge that may become direct competitors to the startup idea. Explain your rational
+
+         3. Create a list of the most promising research papers from paperswithcode.com, as defined by their potential to onboard at least 100 users for their pain points. 
+
+         4. A table containing all information you found from the latest research papers from paperswithcode.
+         
+         Answer in markdown format, and ensure your formatting is correct and that the output will be rendered without issues on a jupyter notebook.
+         
+    outputs:
+      - report

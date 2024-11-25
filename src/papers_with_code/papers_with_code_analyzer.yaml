@@ -1,0 +1,135 @@
+# product_hunt_analyzer.yaml
+
+
+
+nodes:      
+
+  - name: get_current_date
+
+    type: function_call
+
+    function: get_current_date_function
+
+    outputs:
+
+      - current_date
+
+      
+
+  - name: get_timewindow
+
+    type: function_call
+
+    function: get_timewindow_function
+
+    outputs:
+
+      - time_window
+
+  
+
+  - name: papers_with_code_scrape
+
+    type: llm_service
+
+    service: openai
+
+    model: "gpt-4o-2024-08-06"
+
+    tools:
+
+      - COMPOSIO.FIRECRAWL_SCRAPE
+
+    params:
+
+      prompt: |
+
+         You should visit Papers With Code at https://paperswithcode.com/latest
+
+         This website contains research papers on AI/ML advancements
+
+         Today is {{ get_current_date.current_date }}
+
+         You should subsitute yyyy and mm by year and month you want to search.
+
+         The search time window should be {{ get_timewindow.time_window }}.
+
+         After that, you should extract raw content from the htmls associated,
+
+         which will contain information about the each paper such as the title, url to the paper's abstract, who wrote the paper  
+
+         Scroll the page until the end and wait a few miliseconds for it to launch before scraping ONLY 5 research articles.
+
+    outputs:
+
+      - papers_with_code_latest_research_articles    
+
+      
+
+  - name: extract_info_from_search
+
+    type: llm_service
+
+    service: openai
+
+    model: "gpt-4o-2024-08-06"
+
+    structured_output_schema: ResearchPaperList
+
+    params:
+
+      prompt: |
+
+         You are given reports on the extracted content from a search to https://paperswithcode.com/latest, containing AI/ML research papers from the last week:
+
+         {{ papers_with_code_scrape.papers_with_code_latest_research_articles }}. 
+
+         We want to extract accurate information about these research papers. 
+
+         Structure the information there by the following dimensions:  research paper title, url to paper, brief description.
+
+    outputs:
+
+      - structured_search_info
+
+      
+
+  - name: postprocess_search_results
+
+    type: function_call
+
+    function: postprocess_search_results_functions
+
+    params:
+
+      info: '{{ extract_info_from_search.structured_search_info }}'
+
+    outputs:
+
+      - postprocessed_search_results
+
+      
+
+  - name: find_extra_info
+
+    type: llm_service
+
+    service: openai
+
+    model: "gpt-4o-2024-08-06"
+
+    tools:
+
+      - COMPOSIO.TAVILY_TAVILY_SEARCH
+
+    params:
+
+      prompt: |
+
+         You should conduct a comprehensive search on the web about the following entry from paperswithcode.com:
+
+         {{ postprocess_search_results.postprocessed_search_results[i] }}. You should look to find the abstract of the research.
+
+    outputs:
+
+      - research_paper_abstract
